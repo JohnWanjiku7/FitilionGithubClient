@@ -1,0 +1,102 @@
+﻿
+
+.input-wrapper {
+    padding: 18px;
+    width: 60%;
+    border-radius: 10px;
+    box-shadow: 0px 0px 8px #ddd;
+    margin-top: 20px;
+    margin: 0 auto; /* Added to center horizontally */
+    display: flex; /* Added */
+    justify-content: center; /* Added to center content horizontally */
+    align-items: center;
+    flex-direction:column;
+    gap:10px;
+}
+.form-container
+{
+    display:flex;
+    flex-direction:column;
+    width: 100%;
+    gap:10px;
+    
+    
+}
+
+.input-container {
+    align-items:center;
+    gap: 10px;
+    display: flex;
+    justify-content: center; /* Added to center content horizontally */
+
+}
+.search-container
+{
+    display:flex;
+    margin-top:30px;
+    gap: 10px;
+    width:100%;
+    justify-content:center;
+    align-items:center;
+}
+.input-container label {
+    display: block; /* Make label on a new line */
+    margin-bottom: 5px; /* Space below each label */
+}
+.form-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+    width: 100%;
+    padding-left: 45px;
+
+}
+    .form-buttons div {
+       width: 29%;
+       border: 1px solid black;
+       background-color:black;
+       border-radius: 5px;
+       padding: 5px 0 5px 0;
+       
+
+
+    }
+
+input {
+    width: 60%; /* Input takes full width of its container */
+    padding: 10px; /* Adjust padding as needed */
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    box-sizing: border-box; /* Include padding and border in width calculation */
+}
+.uiobjects {
+    margin-bottom: 10px;
+}
+
+h1 {
+    align-items: center;
+    flex-direction: column;
+    margin: 20px 0 0 0;
+    color: red;
+}
+
+
+#root {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2rem;
+    text-align: center;
+    color: white; /* Set text color to white */
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    border: 2px solid #333; /* Dark borders for the table */
+}
+
+th, td {
+    padding: 1rem;
+    border: 1px solid #333; /* Dark borders for table cells */
+}
