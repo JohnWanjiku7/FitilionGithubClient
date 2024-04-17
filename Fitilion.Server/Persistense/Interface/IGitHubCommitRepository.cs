@@ -4,11 +4,10 @@ namespace Fitilion.Server.Persistense.Interface
 {
     public interface IGitHubCommitRepository
     {
-        List<GitHubCommit> GetSavedRepoCommits(string repoName, string repoOwner);
-
-        List<GitHubCommit> GetSavedCommits();
-        GitHubCommit GetById(object id);
-        void Insert(GitHubCommit entity);
+        Task<List<GitHubCommit>> GetSavedRepoCommitsAsync(string repoName, string repoOwner);
+        Task<List<GitHubCommit>> GetSavedCommitsAsync();
+        Task<GitHubCommit> GetByIdAsync(object id);
+        Task InsertAsync(GitHubCommit entity);
         Task DeleteAsync(string id);
     }
 

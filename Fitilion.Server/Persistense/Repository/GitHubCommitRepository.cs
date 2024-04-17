@@ -1,5 +1,6 @@
 ﻿using Fitilion.Server.Models;
 using Fitilion.Server.Persistense.Interface;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fitilion.Server.Persistense.Repository
 {
@@ -11,46 +12,36 @@ namespace Fitilion.Server.Persistense.Repository
         {
             _dbContext = dbContext;
         }
-
         public async Task DeleteAsync(string id)
         {
             var entity = await _dbContext.GitHubCommits.FindAsync(id);
             if (entity != null)
             {
                 _dbContext.GitHubCommits.Remove(entity);
-                _dbContext.SaveChanges();
+                await _dbContext.SaveChangesAsync();
             }
         }
-
-        public List<GitHubCommit> GetSavedRepoCommits(string repoName, string repoOwner)
+        public async Task<List<GitHubCommit>> GetSavedRepoCommitsAsync(string repoName, string repoOwner)
         {
-            return _dbContext.GitHubCommits.Where(x => x.RepoName == repoName && x.RepoOwner == repoOwner).ToList();
+            return await _dbContext.GitHubCommits
+                .Where(x => x.RepoName == repoName && x.RepoOwner == repoOwner)
+                .ToListAsync();
         }
 
-        public GitHubCommit GetById(object id)
+        public async Task<GitHubCommit> GetByIdAsync(object id)
         {
             return _dbContext.GitHubCommits.Find(id);
         }
 
-        public void Insert(GitHubCommit entity)
+        public async Task InsertAsync(GitHubCommit entity)
         {
             _dbContext.GitHubCommits.Add(entity);
              _dbContext.SaveChanges();
-
-            // Example: Get the recently added entity
-            var commit = GetById(entity.CommitId);
-            if (commit != null)
-            {
-                var starred = commit.Starred;
-                // You can perform any additional operations with the newly added entity here
-            }
         }
-
-        public List<GitHubCommit> GetSavedCommits()
+        public async Task<List<GitHubCommit>> GetSavedCommitsAsync()
         {
-            return _dbContext.GitHubCommits.ToList() ?? new List<GitHubCommit>();
+            return await _dbContext.GitHubCommits.ToListAsync() ?? new List<GitHubCommit>();
         }
-
 
     }
 }

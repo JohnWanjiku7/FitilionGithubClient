@@ -24,30 +24,20 @@ namespace Fitilion.Server.Services
         }
         public async Task<List<GitHubCommit>> GetGitHubCommitsAsync(string repoName, string repoOwner)
         {
-            // Construct cache key based on repoName and repoOwner
-            string cacheKey = $"{repoOwner}-{repoName}-Commits";
+            string cacheKey = $"{repoOwner}-{repoName}";
 
-            if (_memoryCache.TryGetValue(cacheKey, out cachedCommits))
+            if (_memoryCache.TryGetValue(cacheKey, out List<GitHubCommit> cachedCommits))
                 return cachedCommits;
 
             try
             {
                 var commitsFromGitHub = await FetchGitHubCommitsAsync(repoName, repoOwner);
-                var existingCommits = _gitHubCommitRepository.GetSavedRepoCommits(repoName, repoOwner);
+                var existingCommits = await _gitHubCommitRepository.GetSavedRepoCommitsAsync(repoName, repoOwner);
 
-                var allCommits = existingCommits.Concat(commitsFromGitHub).ToList();
+                var allCommits = existingCommits?.Concat(commitsFromGitHub).ToList();
                 var uniqueCommits = allCommits.GroupBy(c => c.CommitId).Select(group => group.First()).ToList();
-                foreach (var commit in uniqueCommits)
-                {
-                    if (commit.StarredTime != null)
-                    {
-                        commit.StarredTime = DateTime.Now.ToLongDateString();
-                    }
-                }
 
-
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(timeSpan);
-                _memoryCache.Set(cacheKey, uniqueCommits, cacheEntryOptions);
+                UpdateCache(cacheKey, uniqueCommits);
 
                 return uniqueCommits;
             }
@@ -67,27 +57,23 @@ namespace Fitilion.Server.Services
             return parsedResponse.Select(x => ParseGitHubCommitModel(x, repoName, repoOwner)).ToList();
         }
 
-        public async Task<IActionResult> SaveGitHubCommit(string commitId, string repoName, string repoOwner)
+        public async Task<IActionResult> SaveGitHubCommitAsync(string commitId, string repoName, string repoOwner)
         {
-            string cacheKey = $"{repoOwner}-{repoName}-Commits";
+            string cacheKey = $"{repoOwner}-{repoName}";
 
-            // Try to get the value from cache
-            if (!_memoryCache.TryGetValue(cacheKey, out List<GitHubCommit> cachedCommits))
-            {
-                // If not found in cache, fetch from source
-                cachedCommits = await GetGitHubCommitsAsync(repoName, repoOwner);
-            }
+            List<GitHubCommit> cachedCommits = await GetGitHubCommitsAsync(repoName, repoOwner);
 
-            // Find and update the commit if found
-            var commitToUpdate = cachedCommits?.FirstOrDefault(c => c.CommitId == commitId);
+            var commitToUpdate = cachedCommits.FirstOrDefault(c => c.CommitId == commitId);
             if (commitToUpdate != null)
             {
                 // Update the commit
                 commitToUpdate.StarredTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
                 commitToUpdate.Starred = true;
-                _gitHubCommitRepository.Insert(commitToUpdate);
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(timeSpan);
-                _memoryCache.Set(cacheKey, cachedCommits, cacheEntryOptions);
+                await _gitHubCommitRepository.InsertAsync(commitToUpdate);
+                var savedCommits = await GetSavedCommitsAsync();
+                savedCommits.Add(commitToUpdate);
+                UpdateCache("saved-Commits", savedCommits);
+                UpdateCache(cacheKey, cachedCommits);
                 return new OkResult();
             }
 
@@ -96,72 +82,67 @@ namespace Fitilion.Server.Services
         }
 
 
-        public async Task<IActionResult> RemoveGitHubCommit(string commitId, string repoName, string repoOwner)
+        public async Task<IActionResult> RemoveGitHubCommitAsync(string commitId, string repoName, string repoOwner)
         {
-            string cacheKey = $"{repoOwner}-{repoName}-Commits";
+            string cacheKey = $"{repoOwner}-{repoName}";
 
-            List<GitHubCommit> cachedCommits = _memoryCache.Get<List<GitHubCommit>>(cacheKey);
+            List<GitHubCommit> cachedCommits = await GetGitHubCommitsAsync(repoName, repoOwner);
 
-            if (cachedCommits != null)
+            var commitToRemove = cachedCommits.FirstOrDefault(c => c.CommitId == commitId);
+            if (commitToRemove != null)
             {
-                var commitToRemove = cachedCommits.FirstOrDefault(c => c.CommitId == commitId);
+                cachedCommits.Remove(commitToRemove);
+                _memoryCache.Set(cacheKey, cachedCommits, timeSpan);
 
-                if (commitToRemove != null)
-                {
-                    cachedCommits.Remove(commitToRemove);
-                    _memoryCache.Set(cacheKey, cachedCommits, timeSpan);
-
-                    await _gitHubCommitRepository.DeleteAsync(commitToRemove.CommitId);
-                    return new OkResult();
-                }
-            }
-            else
-            {
-                var commitToRemove = _gitHubCommitRepository.GetById(commitId);
-
-                if (commitToRemove != null)
-                {
-                    await _gitHubCommitRepository.DeleteAsync(commitToRemove.CommitId);
-                    return new OkResult();
-                }
+                await RemoveFromSavedCommitsCacheAsync(commitId);
+                await _gitHubCommitRepository.DeleteAsync(commitToRemove.CommitId);
+                
+                return new OkResult();
             }
 
             return new BadRequestResult();
         }
-        public async Task<List<GitHubCommit>> SearchGitHubCommit(string repoName, string repoOwner, string message)
+        public async Task<List<GitHubCommit>> SearchGitHubCommitsAsync(string repoName, string repoOwner, string message)
         {
-            string cacheKey = $"{repoOwner}-{repoName}-Commits";
+            List<GitHubCommit> cachedCommits = await GetGitHubCommitsAsync(repoName, repoOwner);
 
-            // Try to get the value from cache, fetch from source if not found
-            if (!_memoryCache.TryGetValue(cacheKey, out List<GitHubCommit> cachedCommits))
-                cachedCommits = await GetGitHubCommitsAsync(repoName, repoOwner);
-
-            // Filter commits by message and author
             return cachedCommits.Where(c => c.CommitMessage.ToLower().Contains(message.ToLower())).ToList();
         }
 
-        public async Task<List<GitHubCommit>> GetSavedCommits()
+        public async Task<List<GitHubCommit>> GetSavedCommitsAsync()
         {
             string cacheKey = "saved-Commits";
             if (!_memoryCache.TryGetValue(cacheKey, out List<GitHubCommit> cachedCommits))
             {
-                cachedCommits = _gitHubCommitRepository.GetSavedCommits();
-                var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(timeSpan);
-                _memoryCache.Set(cacheKey, cachedCommits, cacheEntryOptions);
+                cachedCommits = await  _gitHubCommitRepository.GetSavedCommitsAsync();
+                UpdateCache(cacheKey, cachedCommits);
             }
             return cachedCommits;
         }
-
-
-        public async Task<List<GitHubCommit>> SearchSavedCommits(string message)
+        private async Task RemoveFromSavedCommitsCacheAsync(string commitId)
+        {
+            string savedCommitsCacheKey = "saved-Commits";
+            List<GitHubCommit> savedCommits = await GetSavedCommitsAsync();
+            var commitToRemove = savedCommits.FirstOrDefault(c => c.CommitId == commitId);
+            if (commitToRemove != null)
+            {
+                savedCommits.Remove(commitToRemove);
+                UpdateCache(savedCommitsCacheKey, savedCommits);
+            }
+        }
+        public async Task<List<GitHubCommit>> SearchSavedCommitsAsync(string message)
         {
             string cacheKey = "saved-Commits";
-            if (!_memoryCache.TryGetValue(cacheKey, out List<GitHubCommit> cachedCommits))
-                cachedCommits = await GetSavedCommits();
+            List<GitHubCommit> cachedCommits = await GetSavedCommitsAsync();
 
             return cachedCommits.Where(c => c.CommitMessage.ToLower().Contains(message.ToLower())).ToList();
         }
 
+        private void UpdateCache(string cacheKey, List<GitHubCommit> commits)
+        {
+            var cacheEntryOptions = new MemoryCacheEntryOptions().SetSlidingExpiration(timeSpan);
+            _memoryCache.Set(cacheKey, commits, cacheEntryOptions);
+        }
         private static GitHubCommit ParseGitHubCommitModel(JToken x, string repoName, string repoOwner)
         {
             try

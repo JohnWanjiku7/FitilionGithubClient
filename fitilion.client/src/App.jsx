@@ -11,6 +11,7 @@ function App() {
     const [error, setError] = useState(null);
     const [formValid, setFormValid] = useState(false); // New state to track form validity
     const [searchEndpoint, setSearchEndpoint] = useState('search');
+    const[dataSource, setDataSourse] = useState('');
 
     useEffect(() => {
         // Update form validity based on Repo Owner and Repo Name fields
@@ -20,6 +21,7 @@ function App() {
     const handleGetCommits = async () => {
         setLoading(true);
         setError(null);
+        setDataSourse('repo')
         try {
            
             const response = await fetch(`api/Commits/Comments?repoName=${repoName}&repoOwner=${repoOwner}`);
@@ -42,6 +44,7 @@ function App() {
     const handleSavedCommits = async () => {
         setLoading(true);
         setError(null);
+        setDataSourse('saved')
         try {
             const response = await fetch(`api/Commits/saved-commits`);
             if (response.ok) {
@@ -70,6 +73,7 @@ function App() {
         setSearchQuery('');
         setForecasts([]);
         setError(null);
+        setDataSourse('')
     };
 
 
@@ -108,7 +112,14 @@ function App() {
         try {
             const response = await fetch(`api/Commits/${endpoint}?commitId=${commitId}&repoName=${repoName}&repoOwner=${repoOwner}`);
             if (response.ok) {
-                handleGetCommits();
+                if (dataSource === 'repo') {
+                    handleGetCommits();
+                }
+                else {
+                    handleSavedCommits();
+                }
+
+               
             } else {
                 setError(`Failed to ${starred ? 'remove' : 'save'} commit.`);
             }
